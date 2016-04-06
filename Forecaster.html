@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Assignment2</title>
+	
+<!--	<link rel="stylesheet" type="text/css" href="css/reset.css">-->
+    <link rel="stylesheet" type="text/css" href="Style.css">
+	
+	
+</head>
+
+<body>
+   <div id="wrapperHead">
+		<header>        
+        <nav>
+			<form>
+			<div id=form>
+				<ul>
+					<li>
+						Location:<br><input type="search"  id= "city" name="location" placeholder="City, Country" >
+					</li>  
+					<li>
+						How would you like your weather displayed?<br>
+						<div id="radio">
+							<input type="radio" id="celsius" name="temp" value="metric">Metric<br>
+							<input type="radio" id="faren" name="temp" value="imperial">Imperial<br>
+						</div>
+					</li>
+					<li>
+						<select name="days" id="days">
+							<option value="choice">Choose number of days</option>
+							<option value="1">1</option>
+							<option value="2">2</option>
+							<option value="3">3</option>
+							<option value="4">4</option>
+							<option value="5">5</option>
+						</select>
+					</li>
+					<li>
+						<button type="button" id="submit" >Submit</button>
+					</li>
+				</ul>
+			</div>
+
+<!--				This div hides the checkboxes-->
+			<div id="hidden">
+				<ul>
+<!--					Code for the hidden checkboxes was taken from http://stackoverflow.com/questions/1992114/how-do-you-create-a-hidden-div-that-doesnt-create-a-line-break-or-horizontal-sp-->
+					
+
+					<li>Check/Uncheck to Show/Hide:</li>
+					<li><div class="Checkbox"><input type="checkbox" name="maxTemp" id="maxTemp" onclick="toggle()" checked>Max/Min Temp</div></li>
+					<li><div class="Checkbox"><input type="checkbox" name="rainfall" id="rainfall" onclick="toggle()" checked>Rainfall</div></li>
+					<li><div class="Checkbox"><input type="checkbox" name="pressure" id="pressure" onclick="toggle()">Pressure</div></li>
+					<li><div class="Checkbox"><input type="checkbox" name="humidity" id="humidity" onclick="toggle()">Humidity</div></li>
+					<li><div class="Checkbox"><input type="checkbox" name="windspeed" id="windspeed" onclick="toggle()">Windspeed</div></li>
+				</ul>
+			</div>
+			</form>
+        </nav>
+	</header>
+    </div>
+	<div id="wrapper">
+		<div class="clear"></div> 
+
+<!--		This div shows information that is only needed for error handling on the location search bar-->
+		<div id="errorhide">
+			<div id="error"></div>
+		</div>
+		
+<!--		The content of my returned JSON goes here-->
+		<div id="content"></div><br><br>
+			<div class="clear"></div> 
+
+<!--		The content of my 3 hour data goes here-->
+		<div id="3hour" style="overflow-x:auto;"></div>
+		
+<!--		The google map goes here-->
+		<div id="googleMap"></div>
+    
+        
+    </div>
+
+<script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=places"></script>
+<script>
+	//This loads my google maps search bar autocomplete 
+	google.maps.event.addDomListener(window, 'load', init);
+	document.getElementById("submit").addEventListener("click",init);
+    document.getElementById("submit").addEventListener("click",userQuery);
+	document.getElementById("submit").addEventListener("click",delayLoad);
+
+    //Global variables
+	var json=null;
+	//	Variables for concatenating the query url
+	var path = "http://api.openweathermap.org/data/2.5/find?q=";
+	var appid = "&appid=4892567f328cc3fdb6ff6256289cd942";
+	var type = "&type=accurate"
+	var city = null;
+//	Var units is for the path of the units. var unit is for the user input.
+	var units= "&units=";
+	var unit=null;
+	var days=null;
+	var count = "&cnt="
+	var url;
+	var lat=null;
+	var long=null;
+	var marker;
+    var url2;
+    var json3;
+    var degree = null;
+    var speed = null;
+	//Times array stores the daily dt values in returned 5 day weather
+	var times =[];
+
+//    variable s is to keep track of where in the array I am when I click the individual day for weather reports
+    var s;
+	
+	//The code for the search powered by google came from here: http://jon.kim/how-to-add-google-maps-autocomplete-search-box/
+	function init() //This function handles the autocomplete for my search bar
+	{
+//		console.log("here");
+		var input = document.getElementById('city');
+		var autocomplete = new google.maps.places.Autocomplete(input);
+     }
+ 
+//This function assembles the initial url for JSON dta request based on user input
+	function userQuery()
+	{
+		//These clear the divs everytime the user clicks submit
+		document.getElementById("content").innerHTML = "";
+		document.getElementById("3hour").innerHTML= "";
+		
+		//These variables check that all options have been selected to prevent a false query being sent to the API.
+		var loc = false;
+		var metric = false;
+		var drop = false;
+	//	Assign user input value of city
+		city = document.getElementById("city").value;
+		if (city)
+		{
+			console.log("Location: " + city)
+			loc = true;
+		}
+		else
+        {
+			console.log("Location not selected")
+			window.alert("Please enter location")
+		}
+
+
+	//	Assign user input value of units
+	//	I found the idea for this code on an online forum. http://www.dreamincode.net/forums/topic/296821-assign-value-to-variable-using-radio-button/
+		//	Variable to find all the inputs in my form
+		var inputs = document.getElementsByTagName("input");
+		for (var i=0; i<inputs.length; i++){
+			if (inputs[i].type=="radio" && inputs[i].name=="temp" && inputs[i].checked){
+				unit = inputs[i].value;
+				break;
+			}
+		}
+		if (unit)
+        {
+			console.log("Unit Selected: " + unit);
+			metric = true;
+		}
+		else{
+			console.log("Please Enter units")
+			window.alert("Please Select units")
+		}
+
+	//	Assign user input value of number of days
+	//The below code was taken from a stackoverflow forum question. http://stackoverflow.com/questions/15987140/how-to-check-if-an-item-is-selected-from-an-html-drop-down-list
+		var dropdown = document.getElementById("days");
+		if(dropdown.selectedIndex == 0)
+        {
+			 window.alert('Select Number of Days');
+		}
+		else 
+        {
+//			Code taken from : http://stackoverflow.com/questions/5913/getting-the-text-from-a-drop-down-box
+            var selectedText = dropdown.options[dropdown.selectedIndex].text;
+			console.log(selectedText);
+			days = selectedText;
+			drop = true;
+
+		}
+		
+		//If all of the options have been selected then the url is compiled.
+		if(loc==true && drop == true && metric== true)
+		{
+			url = path + city  + units + unit + count + days + type + appid;
+			document.getElementById("content").innerHTML = url;
+			
+			//Send my AJAX request
+			loadDoc()
+		}
+		else
+		{
+			document.getElementById("content").innerHTML = "<p>Please complete selection of all of the options.</p>";
+		}
+		
+	}
+	
+	//This function sends the AJAX request and then triggers the showData() function to display the data.
+	function loadDoc()
+	{
+        var xmlhttp = new XMLHttpRequest(); 
+
+        xmlhttp.onreadystatechange=function() 
+        {
+            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) 
+            {
+
+                json = JSON.parse(xmlhttp.responseText);
+//                jsonString = JSON.stringify(xmlhttp.responseText);
+//                document.getElementById("content").innerHTML = jsonString;
+                console.log(json);
+
+				//this is an error check. I have my initial url search as accurate to display all locations with the same name. If count == 0 then there is no known location and if count >1 there is a few locations. I will then display all of these different locations to the user. 
+                if (json.count==0 || json.count>1)
+					{
+						console.log("Load data cnt=" + json.count);
+						//This function formats the json and puts on the screen
+						showError();
+					}
+				//If the else is activated it means the initial search was accurate and i need to perform another query to the API to return the 5 day data
+				else
+				{
+					var path = "http://api.openweathermap.org/data/2.5/forecast/daily?mode=JSON&q=";
+					
+					var urlReal = path + city + units + unit +count + days + appid;
+					
+					//Send another AJAX request for the 5 day data
+					loadRealDoc(urlReal);
+				}
+            }
+        }
+
+        xmlhttp.open("GET", url, false);
+        xmlhttp.send();
+	}
+	
+	//This function sends the AJAX request for the 5 day data once we have established that there are no errors in location.
+	function loadRealDoc(urlReal)
+	{
+		 var xmlhttp = new XMLHttpRequest();
+        
+        xmlhttp.onreadystatechange=function() 
+        {
+            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) 
+            {
+
+                json = JSON.parse(xmlhttp.responseText);
+//                var jsonString3 = JSON.stringify(xmlhttp.responseText);
+//                document.getElementById("content").innerHTML = jsonString;
+                console.log(json);
+            }
+        }
+
+        xmlhttp.open("GET", urlReal, false);
+        xmlhttp.send();
+        
+		//Call the showData function to output the json to the screen
+        showData();
+	}
+	
+	
+	//Function to delay the loading of the JSON so that we can set the url path properly. My attempt at handling the asynchronyous nature of JS
+	function delayLoad()
+	{
+	setTimeout(loadDoc,1000);
+	}
+
+	//This function outputs the data from our initial AJAX based on multiple locations with the same name
+	function showError()
+	{
+		if ( unit === "metric")
+        {
+			degree = "°C";
+			speed = "m/s"
+		}
+		else
+		{
+			degree = "°F";
+			speed = "mph";
+        }
+		
+		var error = " ";
+		
+		console.log("count > 1");
+		error += '<h2><div class="shade">Your search returned the following locations:</div></h2>'
+		
+		if (json.count == 0)
+			{
+				error+='<br><br><br><pid="none"><img src="backgrounds/map_Q.png" alt="404" id="mapQ"><p>'
+			}
+		else
+		{
+			
+			for (var f = 0; f<json.count; f++)
+			{
+				var icon = "http://openweathermap.org/img/w/" + json.list[f].weather[0].icon + ".png";
+				
+				error += '<ul id = "error'+f+'"><li><div class="shade">'+ json.list[f].name + ', (' + json.list[f].sys.country +')</div></li><li><div class = "shade">Lat: ' + json.list[f].coord.lat + '<br>Lon: '+ json.list[f].coord.lon+ '</div></li><li><div class="shade"><img src=' + icon + ' alt="Weather icon" id="pic">'+ json.list[f].main.temp + degree+ '<br>'+ json.list[f].weather[0].description+  '</div></div></li> </ul>';
+			}
+		}
+			
+		error += '<h2>Please resubmit your query using the searchbox dropdown list for better results</h2><br><br><br><button id="reload" onclick="reload()">Try Again?</button>'
+		
+		//Hide the google map div
+		document.getElementById("googleMap").style.display="none";
+		document.getElementById("error").innerHTML = error;
+		
+		//Set the background image of the list
+		errorBackgroundImage();  
+		document.getElementById("errorhide").style.display= "inherit";
+	}
+	
+	function errorBackgroundImage()
+	{
+		if (json.count ==0)
+			{
+//				document.getElementById("none").style.backgroundImage= "url(backgrounds/map_Q.png)";
+//				document.getElementById("none").innerHTML
+			}
+		else
+		{
+			for (var t=0; t < days; t++){
+				var x= document.getElementById("error"+t);
+				x.style.backgroundImage="url(backgrounds/"+ json.list[t].weather[0].icon + ".jpg)";
+			}
+		}
+		
+	}
+	
+	//This function prints the 5 day dat to the screen
+	function showData()
+	{
+		
+		var icon;
+        var background;
+		
+		var output = " ";
+		lat = json.city.coord.lat;
+		console.log("Lat: "+json.city.coord.lat);
+		long= json.city.coord.lon;
+		console.log("Lon: " + json.city.coord.lat);
+
+		//Changes units based on user selection
+		if ( unit === "metric")
+        {
+			degree = "°C";
+			speed = "m/s"
+		}
+		else{
+			degree = "°F";
+			speed = "mph";
+        }
+        
+		//Cleans out the global array every time this function is called. This prevents the array doubling in size everytime a new query is sent.  
+		times = [];
+		
+	//Display the output html code and relevant information
+		for (var t=0; t < days; t++){
+            icon = "http://openweathermap.org/img/w/" + json.list[t].weather[0].icon + ".png";
+           
+			//Populate the 5 day times
+            times.push(json.list[t].dt);
+            
+			output+= '<a id="3hourQ" href="#" onclick="hoursQuery('+t+')"><ul id="forecastDay' + (t+1) + '"><li><div class="shade"><h3>Day ' + (t+1) + '</h3></div></li><li><div class="shade"><div class="desc"><img src=' + icon + ' alt="Weather icon" id="pic">'+ json.list[t].temp.day + degree+ '<br>'+ json.list[t].weather[0].description+  '</div></div></li><li><div class="shade"><div class="maxtemp">max: ' + json.list[t].temp.max + '°   ' + 'min: ' + json.list[t].temp.min + '°' + '</div></div></li><li><div class="shade"><div class="rainfall">Rain: ' + (json.list[t].rain || '0') + ' mm</div></div></li><li><div class="shade"><div class="pressure"> Pressure: ' + json.list[t].pressure + ' hPa</div></div></li><li><div class="shade"><div class="humidity"> Humidity: ' + json.list[t].humidity + '%</div></div></li><li><div class="shade"><div class="windspeed">Wind Speed: ' + json.list[t].speed + " " + speed+ '</div></div></li></ul></a>';	
+		}
+         
+        console.log("times: "+times);
+
+		//Activate checkboxes
+        showCheckbox();
+        
+		document.getElementById("content").innerHTML= output;
+		//Call function to set the relevant background image
+        backgroundImage();
+		//Call function initilize map
+		initializeMap(lat,long);		
+	}
+    
+	//Sets background images for each list item
+    function backgroundImage()
+    {
+		for (var t=0; t < days; t++){
+				var x= document.getElementById("forecastDay" + (t+1));
+				x.style.backgroundImage="url(backgrounds/"+ json.list[t].weather[0].icon + ".jpg)";
+			}
+    }
+	
+	//	Google map initilise
+	//(a,b) are values passed in from showData(). they are the lat and long needed for the map.
+	//	Google map initilise
+	//Code for the google maps add on was taken entirely from w3 schools section on google maps
+	//(a,b) are values passed in from showData(). they are the lat and long needed for the map.
+	function initializeMap(a,b)
+	{
+		
+		var myCenter=new google.maps.LatLng(a,b);
+
+		var mapProp =
+			{
+				  center:myCenter,
+				  zoom:7,
+				  mapTypeId:google.maps.MapTypeId.ROADMAP
+		  	};
+
+
+			var map=new google.maps.Map(document.getElementById("googleMap"),mapProp);
+
+			var marker=new google.maps.Marker({
+			  	position:myCenter,
+				icon:"http://openweathermap.org/img/w/" + json.list[0].weather[0].icon + ".png",
+				animation:google.maps.Animation.BOUNCE
+
+			  });
+		 
+// Code for the animation timeout was taken from : http://stackoverflow.com/questions/14657779/google-maps-bounce-animation-on-marker-for-a-limited-period
+				setTimeout(function() {
+					marker.setAnimation(null)
+				}, 2900);
+
+			marker.setMap(map);
+		    document.getElementById("googleMap").style.display = "inherit";
+
+	}
+
+	//Show checkboxes
+	function showCheckbox()
+	{
+		document.getElementById("hidden").style.display= "inline-block";
+		
+	}
+	
+	//Function to show/hide relevant information from the checkboxes
+	function toggle()
+	{
+		var maxTemp = document.getElementById("maxTemp");
+		var minTemp = document.getElementById("minTemp");
+		var rainfall = document.getElementById("rainfall");
+		var pressure = document.getElementById("pressure");
+		var humidity = document.getElementById("humidity");
+		var windspeed = document.getElementById("windspeed");
+		var classMaxTemp = document.querySelectorAll(".maxtemp");
+//		var classMinTemp = document.querySelectorAll(".mintemp");
+		var classRainfall = document.querySelectorAll(".rainfall");
+		var classPressure = document.querySelectorAll(".pressure");
+		var classHumidity = document.querySelectorAll(".humidity");
+		var classWindSpeed = document.querySelectorAll(".windspeed");
+
+		//For loop to check if checkboxes are ticked or not and then display them.
+		for (var k=0; k< classMaxTemp.length; k++)
+		{
+//			maxTemp checkbox
+			if (maxTemp.checked === false)
+			{
+				classMaxTemp[k].style.display="none";			
+			}
+			else
+			{
+				classMaxTemp[k].style.display="inherit";			
+			}
+
+//			Rainfall checkbox
+			if (rainfall.checked === false)
+			{
+				classRainfall[k].style.display="none";			
+			}
+			else
+			{
+				classRainfall[k].style.display="inherit";			
+			}
+//			Pressure checkbox
+			if (pressure.checked === false)
+			{
+				classPressure[k].style.display="none";			
+			}
+			else
+			{
+				classPressure[k].style.display="inherit";			
+			}
+//			Humidity checkbox
+			if (humidity.checked === false)
+			{
+				classHumidity[k].style.display="none";			
+			}
+			else
+			{
+				classHumidity[k].style.display="inherit";			
+			}
+//			Wind speed checkbox
+			if (windspeed.checked === false)
+			{
+				classWindSpeed[k].style.display="none";			
+			}
+			else
+			{
+				classWindSpeed[k].style.display="inherit";			
+			}
+				
+			
+		}
+		
+	}
+
+    //Assembles the URL for querying 3 hour data depending on what day the user selects.
+    function hoursQuery(x)
+    {        
+        var path3= "http://api.openweathermap.org/data/2.5/forecast?q=";        
+        url2= path3+ city + units + unit + appid;
+        console.log(url2);
+		//s=x is my way of defining a start point for outputting 3 hour data. s is the index of the times array.
+        s=x;
+		
+		//Send the 3 hour AJAX request
+        hoursGet(url2); 
+    }
+    
+	//Send the 3 hour Ajax Request
+    function hoursGet()
+    {
+        var xmlhttp = new XMLHttpRequest();
+        
+        xmlhttp.onreadystatechange=function() 
+        {
+            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) 
+            {
+
+                json3 = JSON.parse(xmlhttp.responseText);
+//                var jsonString3 = JSON.stringify(xmlhttp.responseText);
+//                document.getElementById("content").innerHTML = jsonString;
+                console.log(json3);
+            }
+        }
+
+        xmlhttp.open("GET", url2, false);
+        xmlhttp.send();
+        
+        showData3();
+    }
+    
+	//Output the 3 hour data to the screen
+    function showData3()
+    {
+        var table = " "
+        console.log("Showing 3 hour data");
+        
+        table+= '<table id="table"><tr><th>Date</th><th>Forecast</th><th>Temp</th><th>Windspeed</th><th>Rain</th>';
+       
+            
+        //Iterates through evey list in json. 50 is an arbitrary number. IT will never go that high
+            for (var t=0; t < 50; t++)
+            {
+				
+    //If the dt is greater than the list index we know we are in the right day and so we can begin to print out the details to the screen
+                if (json3.list[t].dt >= times[s])
+                { 
+					//If the dt is greater than the start dt + the number of seconds in a day then i know i have gone over 24 hours and i can stop outputting the 3 hour data.
+					if(json3.list[t].dt >= (times[s] + 86400))
+                    {
+                        break;
+                    }
+
+					icon = "http://openweathermap.org/img/w/" + json3.list[t].weather[0].icon + ".png";
+                    table+= '<tr><td>' + json3.list[t].dt_txt + '</td><td>' + json3.list[t].weather[0].description + '<img src=' +icon+'></td><td>' + json3.list[t].main.temp + degree + '</td><td>' + json3.list[t].wind.speed+ speed+ '</td><td>' + (json3.list[t].rain["3h"]|| '0')+' mm</td></tr>';
+ 
+                }
+           
+            } 
+        table+= '</table>';
+        document.getElementById("3hour").innerHTML= table;
+
+    }
+	
+	//This function is only called when there has been an error in user inputted location. They will click a button to try search again and this function will be called to reload the page
+	function reload()
+	{
+		location.reload();
+	}
+        
+
+</script>	
+
+</body>
+
+
+</html>
+
