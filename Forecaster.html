@@ -84,6 +84,7 @@
     </div>
 
 <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=places"></script>
+<script type="text/javascript" src="date.js"></script>
 <script>
 	//This loads my google maps search bar autocomplete 
 	google.maps.event.addDomListener(window, 'load', init);
@@ -131,6 +132,7 @@
 		//These clear the divs everytime the user clicks submit
 		document.getElementById("content").innerHTML = "";
 		document.getElementById("3hour").innerHTML= "";
+		document.getElementById("googleMap").style.display= "none" ;
 		
 		//These variables check that all options have been selected to prevent a false query being sent to the API.
 		var loc = false;
@@ -368,8 +370,14 @@
            
 			//Populate the 5 day times
             times.push(json.list[t].dt);
+			
+			//This code makes use of the external JS file to format the dts how i want them
+			//Source: http://www.datejs.com/2007/11/27/getting-started-with-datejs/
+			var DATE = new Date(json.list[t].dt * 1000).toString("MMM dd");
+			console.log("DATE= " + DATE);
+			
             
-			output+= '<a id="3hourQ" href="#" onclick="hoursQuery('+t+')"><ul id="forecastDay' + (t+1) + '"><li><div class="shade"><h3>Day ' + (t+1) + '</h3></div></li><li><div class="shade"><div class="desc"><img src=' + icon + ' alt="Weather icon" id="pic">'+ json.list[t].temp.day + degree+ '<br>'+ json.list[t].weather[0].description+  '</div></div></li><li><div class="shade"><div class="maxtemp">max: ' + json.list[t].temp.max + '°   ' + 'min: ' + json.list[t].temp.min + '°' + '</div></div></li><li><div class="shade"><div class="rainfall">Rain: ' + (json.list[t].rain || '0') + ' mm</div></div></li><li><div class="shade"><div class="pressure"> Pressure: ' + json.list[t].pressure + ' hPa</div></div></li><li><div class="shade"><div class="humidity"> Humidity: ' + json.list[t].humidity + '%</div></div></li><li><div class="shade"><div class="windspeed">Wind Speed: ' + json.list[t].speed + " " + speed+ '</div></div></li></ul></a>';	
+			output+= '<a id="3hourQ" href="#" onclick="hoursQuery('+t+')"><ul id="forecastDay' + (t+1) + '"><li><div class="shade"><h3>'+ DATE +'</h3></div></li><li><div class="shade"><div class="desc"><img src=' + icon + ' alt="Weather icon" id="pic">'+ json.list[t].temp.day + degree+ '<br>'+ json.list[t].weather[0].description+  '</div></div></li><li><div class="shade"><div class="maxtemp">max: ' + json.list[t].temp.max + '°   ' + 'min: ' + json.list[t].temp.min + '°' + '</div></div></li><li><div class="shade"><div class="rainfall">Rain: ' + (json.list[t].rain || '0') + ' mm</div></div></li><li><div class="shade"><div class="pressure"> Pressure: ' + json.list[t].pressure + ' hPa</div></div></li><li><div class="shade"><div class="humidity"> Humidity: ' + json.list[t].humidity + '%</div></div></li><li><div class="shade"><div class="windspeed">Wind Speed: ' + json.list[t].speed + " " + speed+ '</div></div></li></ul></a>';	
 		}
          
         console.log("times: "+times);
